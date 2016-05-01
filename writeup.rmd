@@ -1,0 +1,107 @@
+---
+title: "Practical Machine Learning Writeup"
+author: "ZP"
+date: "May 1, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prediction of how was exercise performed
+
+## Introduction
+Using devices such as Jawbone Up,is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement. 
+
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. We will be using data recorded from accelerometers on the belt, forearm, arm and dumbbell of the target.
+
+
+## Data Cleaning
+The data for this project can be obtained online. A data set as training set and another set as test set.
+
+```{r caret, message=FALSE, warning=FALSE}
+library(caret)
+library(randomForest)
+library(rpart)
+
+training<-read.csv("pml-training.csv",na.strings = c("NA","#DIV/0!"))
+testing<-read.csv("pml-testing.csv",na.strings = c("NA","#DIV/0!"))
+```
+
+## Exploring Data
+```{r}
+dim(training)
+table(training$classe)
+```
+
+From the outcome above, we can see that there are 19,622 observations in training dataset, which includes 160 variables. The last column is our target variable classe. 
+
+There are some variables having a lot of null values. These values had been handled by removing all the variables containing NA values. 
+
+Other than that, some variables which are not related to our targetted variable class, had been removed. Such as "user_name" and timestamp variables.
+
+
+```{r}
+NACount = sapply(1:dim(training)[2],function(x)sum(is.na(training[,x])))
+NAList = which(NACount>0)
+colnames(training[,c(1:7)])
+
+training = training[,-NAList]
+training = training[,-c(1:7)]
+training$classe = factor(training$classe)
+```
+
+The testing dataset will be carrying out the same steps as training dataset
+
+```{r}
+testing = testing[,-NAList]
+testing = testing[,-c(1:7)]
+```
+
+## Cross Validation
+For this part, will try to use different classification methods in caret package, classification tree algorithm and random force. 3-fold validation using trainControl function also will be used.
+
+```{r}
+set.seed(1315)
+cv3=trainControl(method="cv",number=3,allowParallel=TRUE,verboseIter=TRUE)
+modrf=train(classe~.,data=training,method="rf",trControl=cv3)
+
+modtree = train(classe~.,data=training,method="rpart",trControl=cv3)
+```
+
+Let's benhhmark the performances of these two models on the testing dataset.
+```{r}
+prf=predict(modrf,training)
+ptree=predict(modtree,training)
+table(prf,training$classe)
+
+table(ptree,training$classe)
+```
+
+For the testing dataset:
+```{r}
+prf=predict(modrf,testing)
+ptree=predict(modtree,testing)
+table(prf,ptree)
+```
+
+Comparing the result, it seems that random forest model has better accuracy for the testing dataset.
+
+## Conclusion
+
+Random forest model was chosen for the testing dataset.
+```{r}
+answers = predict(modrf,testing)
+pml_write_files = function(x){
+  n=length(x)
+  for(i in 1:n)
+  {
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names = FALSE,col.names = FALSE)
+  }
+}
+answers
+
+pml_write_files(answers)
+```             
